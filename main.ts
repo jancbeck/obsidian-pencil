@@ -68,10 +68,36 @@ export default class MyPlugin extends Plugin {
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));
 
+		let selectionEndTimeout: string | number | NodeJS.Timeout | null | undefined = null;
+		let trackSelectionChanges = 0;
+
+
 		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
+		this.registerDomEvent(document, 'selectionchange', (evt: Event) => {
+			trackSelectionChanges++;
+			console.log(trackSelectionChanges);
+
+			// wait 500 ms after the last selection change event
+			if (selectionEndTimeout) {
+				clearTimeout(selectionEndTimeout);
+			}
+			if (trackSelectionChanges > 4) { // prevent firing on undo action
+				selectionEndTimeout = setTimeout(function () {
+					trackSelectionChanges = 0;
+					const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+					if (view) {
+						const selectedText = view.editor.getSelection();
+						console.log('mouseup', selectedText);
+						if (view.editor.somethingSelected()) {
+							(this.app as any).commands.executeCommandById('obsidian-tweaks:better-formatting-highlight');
+							view.editor.setSelection(view.editor.getCursor());
+
+							//view.editor.replaceSelection(`${prefix}${selectedText}${suffix}`);
+						}
+					}
+				}, 500);
+			}
 		});
 
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
@@ -97,12 +123,12 @@ class SampleModal extends Modal {
 	}
 
 	onOpen() {
-		const {contentEl} = this;
+		const { contentEl } = this;
 		contentEl.setText('Woah!');
 	}
 
 	onClose() {
-		const {contentEl} = this;
+		const { contentEl } = this;
 		contentEl.empty();
 	}
 }
@@ -116,11 +142,11 @@ class SampleSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
-		const {containerEl} = this;
+		const { containerEl } = this;
 
 		containerEl.empty();
 
-		containerEl.createEl('h2', {text: 'Settings for my awesome plugin.'});
+		containerEl.createEl('h2', { text: 'Settings for my awesome plugin.' });
 
 		new Setting(containerEl)
 			.setName('Setting #1')
